@@ -277,8 +277,8 @@ if ( ! class_exists('cets_Plugin_Stats') ) {
 			// Get the time when the plugin list was last generated
 			$gen_time = get_site_option('cets_plugin_stats_data_freshness');
 
-			if ((time() - $gen_time) > 3600 || (isset($_POST['action']) && $_POST['action'] == 'update'))  {
-				// if older than an hour, regenerate, just to be safe
+			if ((time() - $gen_time) > 86400 || (isset($_POST['action']) && $_POST['action'] == 'update'))  {
+				// an hour was too short with my additions :( once a day is a bit more realistic
 				$this->generate_plugin_blog_list();	
 			}
 			$list = get_site_option('cets_plugin_stats_data');
