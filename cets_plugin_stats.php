@@ -5,6 +5,7 @@ Plugin URI: http://wordpress.org/extend/plugins/wpmu-plugin-stats/
 Description: WordPress plugin for letting site admins easily see what plugins are actively used on which sites
 Version: 1.6-dev
 Author: Kevin Graeme, <a href="http://deannaschneider.wordpress.com/" target="_target">Deanna Schneider</a> & <a href="http://www.jasonlemahieu.com/" target="_target">Jason Lemahieu</a>
+Contributor: <a href="http://www.joemotacekj.com" target="_target">Joe Motacek</a>
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: wpmu-plugin-stats
@@ -200,7 +201,10 @@ if ( ! class_exists('cets_Plugin_Stats') ) {
 			$pm_auto_activate_status = ($pm_auto_activate[0] == '' || $pm_auto_active[0] == 'EMPTY' ? 0 : 1);
 			$pm_user_control_status = ($pm_user_control[0] == '' || $pm_user_control == 'EMPTY' ? 0 : 1);
 			$pm_supporter_control_status = ($pm_supporter_control[0] == '' || $pm_supporter_control == 'EMPTY' ? 0 : 1);
-
+			
+			// add supprt for displaying upgradability on same screen
+			$site_transient_update_plugins = get_site_option('_site_transient_update_plugins');
+			$upgradeable = maybe_unserialize($site_transient_update_plugins->response);
 
 			// this is the built-in sitewide activation
 			$active_sitewide_plugins = maybe_unserialize( get_site_option( 'active_sitewide_plugins') );
@@ -268,8 +272,11 @@ if ( ! class_exists('cets_Plugin_Stats') ) {
 								<th class="nocase pc_settings_left"><?php _e( 'Auto Activate', 'wpmu-plugin-stats'); ?></th>
 								<th class="nocase"><?php _e( 'User Controlled', 'wpmu-plugin-stats'); ?></th>
 								<th class="nocase pc_settings_right"><?php _e( 'Supporter Controlled', 'wpmu-plugin-stats'); ?></th>
-								<?php	
-							} ?>
+								<?php		
+								}?>
+							<th class="case" style="text-align: center !important">
+								<?php _e( 'Ugradeable', 'cets-plugin-stats'); ?>
+							</th>
 							<th class="case" style="text-align: center !important">
 								<?php _e( 'Activated Sitewide', 'wpmu-plugin-stats'); ?>
 							</th>
@@ -344,6 +351,19 @@ if ( ! class_exists('cets_Plugin_Stats') ) {
 								}
 								echo("</td>");
 							}
+							
+							// Upgradeable
+							echo ('<td align="center">');
+							if (is_array($upgradeable) && array_key_exists($file, $upgradeable)) {
+								?>
+								<span style="color:green; font-weight:bold;">
+								<?php _e( 'Yes');?>
+								</span>
+								<?php
+							}
+							else {
+								_e( 'No');
+							}
 
 							echo ('<td align="center">');
 							if (is_array($active_sitewide_plugins) && array_key_exists($file, $active_sitewide_plugins)) {
@@ -404,12 +424,20 @@ if ( ! class_exists('cets_Plugin_Stats') ) {
 								<th class="nocase pc_settings_left"><?php _e( 'Auto Activate', 'wpmu-plugin-stats'); ?></th>
 								<th class="nocase"><?php _e( 'User Controlled', 'wpmu-plugin-stats'); ?></th>
 								<th class="nocase pc_settings_right"><?php _e( 'Supporter Controlled', 'wpmu-plugin-stats'); ?></th>
-							<?php	
-							}
-							?>
-							<th class="case" style="text-align: center !important"><?php _e( 'Activated Sitewide', 'wpmu-plugin-stats'); ?></th>
-							<th class="num"><?php _e( 'Total Blogs', 'wpmu-plugin-stats'); ?></th>
-							<th width="200px"><?php _e( 'Blog Titles', 'wpmu-plugin-stats'); ?></th>
+							<?php		
+							}?>
+							<th class="case" style="text-align: center !important">
+								<?php _e( 'Ugradeable', 'cets-plugin-stats'); ?>
+							</th>
+							<th class="case" style="text-align: center !important">
+								<?php _e( 'Activated Sitewide', 'wpmu-plugin-stats'); ?>
+							</th>
+							<th class="num">
+								<?php _e( 'Total Blogs', 'wpmu-plugin-stats'); ?>
+							</th>
+							<th width="200px">
+								<?php _e( 'Blog Titles', 'wpmu-plugin-stats'); ?>
+							</th>
 						</tr>
 					</tfoot>
 				</table>
