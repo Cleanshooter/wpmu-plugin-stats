@@ -3,7 +3,7 @@
 Plugin Name: WPMU Plugin Stats
 Plugin URI: http://wordpress.org/extend/plugins/wpmu-plugin-stats/
 Description: WordPress plugin for letting site admins easily see what plugins are actively used on which sites
-Version: 1.6-dev
+Version: 1.7-dev
 Author: Kevin Graeme, <a href="http://deannaschneider.wordpress.com/" target="_target">Deanna Schneider</a> & <a href="http://www.jasonlemahieu.com/" target="_target">Jason Lemahieu</a>
 Contributor: <a href="http://www.joemotacekj.com" target="_target">Joe Motacek</a>
 License: GPLv2 or later
@@ -129,8 +129,60 @@ if ( ! class_exists('cets_Plugin_Stats') ) {
 			update_site_option('cets_plugin_stats_data', $plugins);
 			//} 
 
+			$this->derelict_check();
+
 			update_site_option('cets_plugin_stats_data_freshness', time());
 
+		}
+		
+		/**
+		* Author: Joe Motacek
+		* Since: 1.6
+		* This function checks all the plugins to see if they are maintained
+		* Current Issues:  With a large amount of plugins to check it will easily hit the php max excution time.
+		* 					I would like to write some kind of ajax based status bar addition to this but
+		* 					I'm not sure where to start at the moment...
+		*/
+		function derelict_check() {
+			ini_set('default_socket_timeout', 3); //helps if you're hitting max-execution... @todo find better solution
+			$derelict_data = array();
+			$plugins = get_plugins();
+						
+			$slugs = array();
+			foreach ($plugins as $name => $data){
+				preg_match("/(?<=\/).*[a-zA-Z0-9-](?=.php)/", $name, $slug);
+				$plugin_wp_page = @file_get_contents('http://www.wordpress.org/plugins/' . $slug[0] . "/");
+							
+				if($plugin_wp_page !== false){
+					preg_match('/(?<=<meta itemprop="dateModified" content=").*[0-9-](?=")/', $plugin_wp_page ,$date_string);
+
+					$plugin_date = strtotime($date_string[0]);
+					$two_years = strtotime ( '-2 year' , strtotime( date("Y-m-d") ) ) ;
+						
+					$status = ($plugin_date < $two_years ?  "0":  "3");
+				}
+
+				else{
+					$plugin_author_page = @get_headers($data['PluginURI']);
+					if($plugin_author_page !== false){
+						if($plugin_author_page[0] == 'HTTP/1.1 404 Not Found') {
+							$status = "0";
+						}
+						elseif($plugin_author_page[0] == 'HTTP/1.1 301 Moved Permanently'){
+							$status = "1";
+						}
+						else{
+							$status = "2";
+						}
+					}else{
+						$status = "0";
+					}
+				}					
+			
+				$derelict_data[$name] = $status;
+			}
+				
+			update_site_option('cets_plugin_derelict_data', $derelict_data);
 		}
 
 		// Create a function to add a menu item for site admins
@@ -154,6 +206,11 @@ if ( ! class_exists('cets_Plugin_Stats') ) {
 				'title'     => __('About', 'wpmu-plugin-stats'),
 				'callback'  => array( &$this, 'about_tab')
 			));
+			$screen->add_help_tab( array(
+				'id'        => 'cets_plugin_stats_tab_status',
+				'title'     => __('Status Definitions', 'cets-plugin-stats'),
+				'callback'  => array( &$this, 'status_tab')
+			));  
 		}
 
 		function about_tab() { ?>
@@ -174,6 +231,43 @@ if ( ! class_exists('cets_Plugin_Stats') ) {
 				</li>
 				<li><b><?php _e( 'Languages', 'wpmu-plugin-stats'); ?>:</b> English (development), German, Spanish, <a href="https://translate.foe-services.de/projects/cets-plugin-stats" target="_blank">more...</a></li> 
 				<li><b><?php _e( 'License', 'wpmu-plugin-stats'); ?>:</b> <a href="http://www.gnu.org/licenses/gpl-2.0.html" target="_blank">GPLv2 or later</a></li>
+			</ul>
+		<?php 
+		}
+		
+		function status_tab() { ?>
+			<style>.tab-about li { list-style: none; }</style>
+			<h1>WPMU Plugin Stats</h1>
+			<h2>Status Definitions</h2>
+			<ul class="tab-about">
+				<li><span style="color:green;font-weight: bold;"><?php _e( 'Diligent', 'cets-plugin-stats'); ?>:</span>
+					<ul>
+						<li>Indicates that this plugin is diligently updated.</li>
+						<li>This plugin is easily identified on the WordPress Plugin Directory (WPPD) by its slug.</li>	
+						<li>This plugin has been updated within the last 2 years.</li>						
+					</ul>
+				</li>
+				<li><span style="color:yellow; text-shadow: 0 0 3px #000;font-weight: bold;"><?php _e( 'Questionable', 'cets-plugin-stats'); ?>:</span>
+					<ul>
+						<li>Indicates that we could not find the plugin on the WPPD by its slug.</li>
+						<li>We were able to find the Developers site intact.</li>	
+						<li>Good plugin developers know to use the same slug name for their main php file as the one they have in the WWPPD</li>						
+					</ul>
+				</li>
+				<li><span style="color:orange;font-weight: bold;"><?php _e( 'Outdated', 'cets-plugin-stats'); ?>:</span>
+					<ul>
+						<li>Indicates that could not find the plugin on the WPPD by its slug.</li>
+						<li>We were able to find the Developers site however it was recently moved.</li>	
+						<li>It might be prudent to update if possible or at least follow up.</li>						
+					</ul>
+				</li>
+				<li><span style="color:red;font-weight: bold;"><?php _e( 'Derelict', 'cets-plugin-stats'); ?>:</span>
+					<ul>
+						<li>Indicates that could not find the plugin on the WPPD by its slug.</li>
+						<li>When we tried to load the developers site it either timed out or returned a 404.</li>	
+						<li>It is strongly recommended that your remove or replace this plugin.</li>						
+					</ul>
+				</li>
 			</ul>
 		<?php 
 		}
@@ -275,7 +369,10 @@ if ( ! class_exists('cets_Plugin_Stats') ) {
 								<?php		
 								}?>
 							<th class="case" style="text-align: center !important">
-								<?php _e( 'Ugradeable', 'cets-plugin-stats'); ?>
+								<?php _e( 'Ugradeable', 'wpmu-plugin-stats'); ?>
+							</th>
+							<th class="case" style="text-align: center !important">
+								<?php _e( 'Status', 'wpmu-plugin-stats'); ?>
 							</th>
 							<th class="case" style="text-align: center !important">
 								<?php _e( 'Activated Sitewide', 'wpmu-plugin-stats'); ?>
@@ -364,6 +461,30 @@ if ( ! class_exists('cets_Plugin_Stats') ) {
 							else {
 								_e( 'No');
 							}
+							
+							//Status
+							echo ('<td align="center">');
+							if (is_array($derelict_data) && array_key_exists($file, $derelict_data)) {
+								$status = $derelict_data[$file];
+								switch ($status){
+									case "0":?>
+										<span style="color:red; font-weight:blod;">Derelict</span>
+									<?php break;
+									case "1":?>
+										<span style="color:orange;">Outdated</span>
+									<?php break;
+									case "2":?>
+										<span style="color:yellow; text-shadow: 0 0 2px #000;">Questionable</span>
+									<?php break;
+									case "3":?>
+										<span style="color:green;">Diligent</span>
+									<?php break;
+								}
+									
+							}
+							else {
+								_e( 'Not Found');
+							}
 
 							echo ('<td align="center">');
 							if (is_array($active_sitewide_plugins) && array_key_exists($file, $active_sitewide_plugins)) {
@@ -427,7 +548,10 @@ if ( ! class_exists('cets_Plugin_Stats') ) {
 							<?php		
 							}?>
 							<th class="case" style="text-align: center !important">
-								<?php _e( 'Ugradeable', 'cets-plugin-stats'); ?>
+								<?php _e( 'Ugradeable', 'wpmu-plugin-stats'); ?>
+							</th>
+							<th class="case" style="text-align: center !important">
+								<?php _e( 'Status', 'wpmu-plugin-stats'); ?>
 							</th>
 							<th class="case" style="text-align: center !important">
 								<?php _e( 'Activated Sitewide', 'wpmu-plugin-stats'); ?>
